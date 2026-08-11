@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Authorization complete — Tales of Wonder Publisher</title>
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:44rem;margin:3rem auto;padding:0 1.25rem;line-height:1.6;color:#1a1a1a}
+  h1{font-size:1.5rem}
+  .box{background:#f4f4f6;border:1px solid #ddd;border-radius:8px;padding:1rem;margin:1.25rem 0;
+       font-family:ui-monospace,Consolas,monospace;font-size:.95rem;word-break:break-all}
+  .ok{color:#0a7d32;font-weight:600}
+  .warn{color:#a15c00}
+  button{font:inherit;padding:.5rem 1rem;border-radius:6px;border:1px solid #bbb;background:#fff;cursor:pointer}
+  .muted{color:#666;font-size:.9rem}
+</style>
+</head>
+<body>
+
+<h1>Authorization complete</h1>
+<p id="status" class="muted">Reading the authorization code…</p>
+
+<div id="codewrap" style="display:none">
+  <p><strong>Authorization code</strong> — paste this back into Claude if it was not picked up automatically:</p>
+  <div class="box" id="code"></div>
+  <button id="copy">Copy code</button>
+</div>
+
+<p class="muted">This page is part of a private, single-user tool. It receives an authorization
+code from TikTok and hands it to software running on the owner's own computer. Nothing is stored here.</p>
+
+<script>
+(function () {
+  var params = new URLSearchParams(location.search);
+  var code = params.get('code');
+  var error = params.get('error');
+  var status = document.getElementById('status');
+
+  if (error) {
+    status.innerHTML = '<span class="warn">TikTok returned an error: ' + error +
+      (params.get('error_description') ? ' — ' + params.get('error_description') : '') + '</span>';
+    return;
+  }
+  if (!code) {
+    status.innerHTML = '<span class="warn">No authorization code in the URL. ' +
+      'Open this page only via the TikTok authorization flow.</span>';
+    return;
+  }
+
+  document.getElementById('code').textContent = code;
+  document.getElementById('codewrap').style.display = 'block';
+  document.getElementById('copy').onclick = function () {
+    navigator.clipboard.writeText(code);
+    this.textContent = 'Copied';
+  };
+
+  // Try to hand the code straight to the local listener. Browsers treat
+  // http://127.0.0.1 as a secure context, so this is not blocked as mixed content.
+  var ports = [8217, 8218];
+  var tried = 0;
+  ports.forEach(function (p) {
+    fetch('http://127.0.0.1:' + p + '/tiktok-callback?code=' + encodeURIComponent(code), { mode: 'no-cors' })
+      .then(function () {
+        status.innerHTML = '<span class="ok">Code sent to the local application. You can close this tab.</span>';
+      })
+      .catch(function () {
+        tried++;
+        if (tried === ports.length) {
+          status.innerHTML = '<span class="warn">Could not reach the local application. ' +
+            'Copy the code below and paste it into Claude.</span>';
+        }
+      });
+  });
+})();
+</script>
+
+</body>
+</html>
